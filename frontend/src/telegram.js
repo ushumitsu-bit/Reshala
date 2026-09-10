@@ -23,10 +23,26 @@ function persistInitData(raw) {
 
 function loadCachedInitData() {
   try {
-    return sessionStorage.getItem(INIT_DATA_KEY) || '';
-  } catch (e) {
-    return '';
-  }
+    const own = sessionStorage.getItem(INIT_DATA_KEY);
+    if (own) return own;
+
+    // Telegram SDK сам кладёт launch-параметры сюда — берём оттуда,
+    // если window.Telegram.WebApp.initData не заполнился.
+    const tgParams = sessionStorage.getItem('__telegram__initParams');
+    if (tgParams) {
+      const parsed = JSON.parse(tgParams);
+      if (parsed && parsed.tgWebAppData) return parsed.tgWebAppData;
+    }
+  } catch (e) { /* noop */ }
+
+  // Последний фолбэк — сырой хеш URL (#tgWebAppData=...), пока он ещё есть.
+  try {
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    const m = new URLSearchParams(hash).get('tgWebAppData');
+    if (m) return m;
+  } catch (e) { /* noop */ }
+
+  return '';
 }
 
 function parseUserFromInitData(raw) {
