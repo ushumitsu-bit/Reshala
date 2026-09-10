@@ -28,12 +28,30 @@ function AccessDenied() {
   );
 }
 
+// Мы внутри Telegram, но подписанной initData нет (ни живой, ни из кэша) —
+// открыть напрямую по ссылке нельзя, нужен вход через кнопку бота.
+function NoInitData() {
+  return (
+    <div className="app" data-testid="app-container">
+      <div className="access-denied" data-testid="no-init-data">
+        <div className="access-denied-icon">
+          <ShieldX size={48} />
+        </div>
+        <h2>Нет данных авторизации Telegram</h2>
+        <p>Откройте Dashboard через кнопку в боте (меню «Dashboard» или кнопка «Открыть Dashboard» под /start), а не по ссылке.</p>
+        <p className="text-muted">Если открыли через кнопку и всё равно видите это — полностью закройте Mini App и откройте заново.</p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = useState('search');
   const [settings, setSettings] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [noInitData, setNoInitData] = useState(false);
   const [initData, setInitData] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -93,9 +111,17 @@ function App() {
 
   useEffect(() => {
     const init = async () => {
-      const { user: tgUser, initData: rawData } = initTelegram();
+      const { user: tgUser, initData: rawData, isTelegram } = initTelegram();
 
       setInitData(rawData);
+
+      // Внутри Telegram, но подписанной initData нет — открыли по ссылке
+      // или клиент не отдал launch-параметры. Нет смысла дёргать API.
+      if (isTelegram && !rawData) {
+        setNoInitData(true);
+        setLoading(false);
+        return;
+      }
 
       const settingsData = await fetchSettings(rawData);
       await fetchProviders(rawData);
@@ -123,6 +149,10 @@ function App() {
         <span>Загрузка...</span>
       </div>
     );
+  }
+
+  if (noInitData) {
+    return <NoInitData />;
   }
 
   if (accessDenied) {
